@@ -34,6 +34,10 @@
  */
 interface Tx_Extbase_Persistence_QOM_JoinInterface extends Tx_Extbase_Persistence_QOM_SourceInterface {
 
+	const TYPE_INNER = 'INNER';
+	const TYPE_LEFT_OUTER = 'LEFT OUTER';
+	const TYPE_RIGHT_OUTER = 'RIGHT OUTER';
+
 	/**
 	 * Gets the left node-tuple source.
 	 *

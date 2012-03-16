@@ -1,55 +1,99 @@
 <?php
-/**
- * Created by JetBrains PhpStorm.
- * User: info
- * Date: 16.03.12
- * Time: 13:10
- * To change this template use File | Settings | File Templates.
- */
+
 class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query implements Tx_Extbase_Persistence_Typo3_QueryInterface {
 
 	/**
-	 * @param Tx_Extbase_Persistence_QOM_JoinTargetInterface $target
+	 * @param array<Tx_Extbase_Persistence_QOM_JoinTargetInterface> $targets
 	 * @return void
 	 */
-	public function join(Tx_Extbase_Persistence_QOM_JoinTargetInterface $target) {
+	public function join(array $targets) {
+
+		$this->setSource()
 
 	}
 
 	/**
-	 * @param $name
-	 * @return Tx_Extbase_Persistence_QOM_JoinTargetInterface
+	 * @param string $name
+	 * @param string $name
+	 * @return array
 	 */
-	public function buildJoinTargetForClassname($className) {
-		return t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_JoinTarget',
-			$this->dataMapper->convertClassNameToTableName($className),
-			$className,
+	public function buildJoinTargets($propertyPath, $sourceType = NULL) {
 
+		if (!stristr($propertyPath, '.')) {
+			throw new Tx_Extbase_Persistence_Exception_NoJoinRequired('We can\'t perform joins for simple properties.', 1331941411);
+		}
+		$explodedPropertyPath = explode('.', $propertyPath, 2);
+		$propertyName = $explodedPropertyPath[0];
 
-			//tablename
-			//nodetypename
-			//conditions
+		$type = $sourceType ?: $this->getType();
+
+		$columnMap = $this->dataMapper->getDataMap($type)->getColumnMap($propertyName);
+		$childTable = $columnMap->getChildTableName();
+
+		$condition = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_PlainJoinCondition',
+			$this->dataMapper->convertClassNameToTableName($type),
+			$propertyName,
+			$childTable,
+			$columnMap->getChildKeyFieldName()
 		);
+
+		$joinTarget = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_JoinTarget',
+			$childTable,
+			Tx_Extbase_Persistence_QOM_JoinInterface::TYPE_INNER,
+			$condition
+		);
+
+		$targets = array($joinTarget);
+
+		if (isset($explodedPropertyPath[1]) && stristr($explodedPropertyPath[1], '.') !== FALSE) {
+			$propertyType = $this->dataMapper->getType($type, $propertyName);
+			$targets = array_merge(
+				$targets,
+				$this->buildJoinTargets($explodedPropertyPath[1], $propertyType)
+			);
+		}
+		return $targets;
 	}
 
 	/**
 	 * @param $name
 	 * @param array $conditions
+	 * @return Tx_Extbase_Persistence_QOM_JoinTargetInterface
 	 */
 	public function buildJoinTargetForTablename($name, array $conditions) {
 		return t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_JoinTarget',
-			//$name,
-			//nodetypename
+			$name,
+			Tx_Extbase_Persistence_QOM_JoinInterface::TYPE_INNER,
 			$this->getConditionForArray($conditions)
 		);
 	}
 
+	/**
+	 * Retrieve an array of conditions and join them together with an logical and
+	 * used to have a more convenient api
+	 *
+	 * @param array $conditions
+	 * @return Tx_Extbase_Persistence_QOM_JoinConditionInterface
+	 * @throws Tx_Extbase_Persistence_Exception_InvalidNumberOfConstraints
+	 */
 	protected function getConditionForArray(array $conditions) {
 
+		reset($conditions);
+
+		if (sizeof($conditions) == 1) {
+			return current($conditions);
+		} else if (sizeof($conditions) == 0) {
+			throw new Tx_Extbase_Persistence_Exception_InvalidNumberOfConstraints('There must be at least one constraint or a non-empty array of constraints given.', 1268056289);
+		}
+
 		/* @var $andCondition Tx_Extbase_Persistence_QOM_LogicalAnd */
-		$andCondition = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_LogicalAnd');
+		$andCondition = t3lib_div::makeInstance(
+			'Tx_Extbase_Persistence_QOM_LogicalAnd',
+			current($conditions),
+			$this->getConditionForArray(array_slice($conditions, 1))
+		);
 
-
+		return $andCondition;
 	}
 
 }

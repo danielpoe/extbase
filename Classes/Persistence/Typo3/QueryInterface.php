@@ -8,6 +8,6 @@
  */
 interface Tx_Extbase_Persistence_Typo3_QueryInterface {
 
-	public function join(Tx_Extbase_Persistence_QOM_JoinTargetInterface $target);
+	public function join(array $target);
 
 }
