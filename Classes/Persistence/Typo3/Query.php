@@ -2,14 +2,76 @@
 
 class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query implements Tx_Extbase_Persistence_Typo3_QueryInterface {
 
+
+	/**
+	 * @var array
+	 */
+	protected $joinMap = array();
+
 	/**
 	 * @param array<Tx_Extbase_Persistence_QOM_JoinTargetInterface> $targets
 	 * @return void
 	 */
 	public function join(array $targets) {
 
-		$this->setSource()
+		$leftSource = $this->getMappedSelector($this->getSelectorName(), $this->getType());
 
+		$rightTarget = $targets[0];
+		$rightSource = $this->getMappedSelector($rightTarget->getTablename(), $rightTarget->getType());
+
+		$targets = array_slice($targets, 1);
+
+		/* @var $target Tx_Extbase_Persistence_QOM_JoinTarget */
+		foreach($targets as $target) {
+			$selector = $this->getMappedSelector($target->getTablename(), $target->getType());
+			$rightSource = $this->getMappedJoin($rightSource, $selector, $target);
+		}
+
+
+		/* @var $join Tx_Extbase_Persistence_QOM_Join */
+		$joinedSource = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_Join',
+			$leftSource,
+			$rightSource,
+			$rightTarget->getType(),
+			$rightTarget->getCondition()
+		);
+
+		$this->setSource($joinedSource);
+	}
+
+	/**
+	 * @param string $name
+	 * @param string $type
+	 * @return Tx_Extbase_Persistence_QOM_SourceInterface
+	 */
+	protected function getMappedSelector($name, $type) {
+		if (!isset($this->joinMap[$name])) {
+			$source = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_Selector',
+				$name,
+				$type
+			);
+			$this->joinMap[$name] = $source;
+		}
+		return $this->joinMap[$name];
+	}
+
+	/**
+	 * @param Tx_Extbase_Persistence_QOM_SourceInterface $left
+	 * @param Tx_Extbase_Persistence_QOM_SourceInterface $right
+	 * @param Tx_Extbase_Persistence_QOM_JoinTargetInterface $target
+	 * @return Tx_Extbase_Persistence_QOM_SourceInterface
+	 */
+	protected function getMappedJoin(Tx_Extbase_Persistence_QOM_SourceInterface $left,Tx_Extbase_Persistence_QOM_SourceInterface $right,Tx_Extbase_Persistence_QOM_JoinTargetInterface $target) {
+		if (!isset($this->joinMap[$target->getTablename()]) || !is_a($this->joinMap[$target->getTablename()], 'Tx_Extbase_Persistence_QOM_JoinInterface') ) {
+			$source = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_Join',
+				$left,
+				$right,
+				$target->getType(),
+				$target->getCondition()
+			);
+			$this->joinMap[$target->getTablename()] = $source;
+		}
+		return $this->joinMap[$target->getTablename()];
 	}
 
 	/**
