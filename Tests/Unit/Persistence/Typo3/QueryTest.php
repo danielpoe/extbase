@@ -129,16 +129,16 @@ class Tx_Extbase_Tests_Unit_Persistence_Typo3_QueryTest extends Tx_Extbase_Tests
 	 * @test
 	 */
 	public function canBuildComplexJoinedSource() {
-
-		$this->markTestIncomplete();
-
+		$this->markTestIncomplete('TBD');
 		$joinTargets = array(
-			$this->getJoinTargetMock('tx_mysource', 'uid', 'tx_mysource', 't3ver_oid'),
 			$this->getJoinTargetMock('tx_mysource', 'sourceproperty', 'tx_mytarget', 'targetproperty'),
-			$this->getJoinTargetMock('tx_mytarget', 'uid', 'tx_mytarget', 't3ver_oid'),
+			$this->getOverlayJoinTargetMock('tx_mysource', 'uid', 'tx_mysource', 't3ver_oid'),
+			$this->getOverlayJoinTargetMock('tx_mytarget', 'uid', 'tx_mytarget', 't3ver_oid'),
 		);
 
 		$query = $this->getQueryMock();
+		$query->join($joinTargets);
+			// make sure the internal mapping doesn't break even if join() is called multiple times
 		$query->join($joinTargets);
 
 		/* @var $source Tx_Extbase_Persistence_QOM_JoinInterface */
@@ -147,6 +147,8 @@ class Tx_Extbase_Tests_Unit_Persistence_Typo3_QueryTest extends Tx_Extbase_Tests
 
 		// FROM ((mysource AS origin INNER mysource as version) ON .... )
 		// FROM (mysource AS origin INNER mysource AS lang ON  .... ) INNER ((mysource AS origin2 INNER mysource AS version ON  ....) INNER lang2 ON origin.uid=origin2.uid
+
+		Tx_Extbase_Utility_Debugger::var_dump($source);
 
 		$this->assertTrue(is_a($source->getLeft(), 'Tx_Extbase_Persistence_QOM_OverlayJoinInterface'));
 		$this->assertSelector($source->getLeft()->getLeft(), 'tx_mysource');
@@ -171,6 +173,15 @@ class Tx_Extbase_Tests_Unit_Persistence_Typo3_QueryTest extends Tx_Extbase_Tests
 		return $query;
 	}
 
+	/**
+	 * Check whether we've a proper joinTarget pointing to the right selectors
+	 *
+	 * @param $joinTarget
+	 * @param $sourceName
+	 * @param $sourceField
+	 * @param $targetName
+	 * @param $targetField
+	 */
 	protected function assertJoinTarget($joinTarget, $sourceName, $sourceField, $targetName, $targetField) {
 		$this->assertTrue(is_a($joinTarget, 'Tx_Extbase_Persistence_QOM_JoinTargetInterface'));
 		$this->assertEquals($targetName, $joinTarget->getTablename()); // taken from the property

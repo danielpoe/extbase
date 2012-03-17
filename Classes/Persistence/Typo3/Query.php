@@ -9,6 +9,11 @@ class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query im
 	protected $joinMap = array();
 
 	/**
+	 * @var array
+	 */
+	protected $sourceMap = array();
+
+	/**
 	 * @param array<Tx_Extbase_Persistence_QOM_JoinTargetInterface> $targets
 	 * @return void
 	 */
@@ -16,8 +21,11 @@ class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query im
 
 		$leftSource = $this->getMappedSelector($this->getSelectorName(), $this->getType());
 
+		/* @var $rightTarget Tx_Extbase_Persistence_QOM_JoinTargetInterface */
 		$rightTarget = $targets[0];
 		$rightSource = $this->getMappedSelector($rightTarget->getTablename(), $rightTarget->getType());
+
+		$leftSource = $this->getMappedSource($leftSource, $rightTarget);
 
 		$targets = array_slice($targets, 1);
 
@@ -46,6 +54,7 @@ class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query im
 	 */
 	protected function getMappedSelector($name, $type) {
 		if (!isset($this->joinMap[$name])) {
+			/* @var $source Tx_Extbase_Persistence_QOM_Selector */
 			$source = t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_Selector',
 				$name,
 				$type
@@ -75,9 +84,31 @@ class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query im
 	}
 
 	/**
+	 * @param Tx_Extbase_Persistence_QOM_Selector $source
+	 * @param Tx_Extbase_Persistence_QOM_JoinTargetInterface $target
+	 * @return Tx_Extbase_Persistence_QOM_SourceInterface
+	 */
+	protected function getMappedSource(Tx_Extbase_Persistence_QOM_Selector $source,Tx_Extbase_Persistence_QOM_JoinTargetInterface $target) {
+		$type = $source->getNodeTypeName();
+		$field = $target->getCondition()->getField1Name();
+		if (isset($this->sourceMap[$type][$field])) {
+			return $this->sourceMap[$type][$field];
+		} else if (isset($this->sourceMap[$type])) {
+			$this->sourceMap[$type][$field] = $this->getMappedJoin(
+				$source,
+				current($this->sourceMap[$type]),
+				$target
+			);
+		} else {
+			$this->sourceMap[$type][$field] = $source;
+		}
+		return $this->sourceMap[$type][$field];
+	}
+
+	/**
 	 * @param string $name
 	 * @param string $name
-	 * @return array
+	 * @return array<Tx_Extbase_Persistence_QOM_JoinTarget>
 	 */
 	public function buildJoinTargets($propertyPath, $sourceType = NULL) {
 
@@ -118,44 +149,16 @@ class Tx_Extbase_Persistence_Typo3_Query extends Tx_Extbase_Persistence_Query im
 	}
 
 	/**
-	 * @param $name
-	 * @param array $conditions
-	 * @return Tx_Extbase_Persistence_QOM_JoinTargetInterface
+	 * @param Tx_Extbase_Persistence_QOM_SelectorInterface $selector
+	 * @param Tx_Extbase_Persistence_QOM_JoinConditionInterface $condition
+	 * @param string $tableName
+	 * @return
 	 */
-	public function buildJoinTargetForTablename($name, array $conditions) {
-		return t3lib_div::makeInstance('Tx_Extbase_Persistence_QOM_JoinTarget',
-			$name,
-			Tx_Extbase_Persistence_QOM_JoinInterface::TYPE_INNER,
-			$this->getConditionForArray($conditions)
-		);
+	public function buildOverlayJoinTargets($selector, Tx_Extbase_Persistence_QOM_JoinConditionInterface $condition, $tableName = '') {
+
+		$this->getMappedSelector($this->getSelectorName(), $this->getType());
+
+
+
 	}
-
-	/**
-	 * Retrieve an array of conditions and join them together with an logical and
-	 * used to have a more convenient api
-	 *
-	 * @param array $conditions
-	 * @return Tx_Extbase_Persistence_QOM_JoinConditionInterface
-	 * @throws Tx_Extbase_Persistence_Exception_InvalidNumberOfConstraints
-	 */
-	protected function getConditionForArray(array $conditions) {
-
-		reset($conditions);
-
-		if (sizeof($conditions) == 1) {
-			return current($conditions);
-		} else if (sizeof($conditions) == 0) {
-			throw new Tx_Extbase_Persistence_Exception_InvalidNumberOfConstraints('There must be at least one constraint or a non-empty array of constraints given.', 1268056289);
-		}
-
-		/* @var $andCondition Tx_Extbase_Persistence_QOM_LogicalAnd */
-		$andCondition = t3lib_div::makeInstance(
-			'Tx_Extbase_Persistence_QOM_LogicalAnd',
-			current($conditions),
-			$this->getConditionForArray(array_slice($conditions, 1))
-		);
-
-		return $andCondition;
-	}
-
 }
