@@ -33,7 +33,7 @@
  * @version $Id$
  * @api
  */
-class Tx_Extbase_Persistence_Manager implements Tx_Extbase_Persistence_ManagerInterface, t3lib_Singleton {
+class Tx_Extbase_Persistence_Old_Manager implements Tx_Extbase_Persistence_ManagerInterface, t3lib_Singleton {
 
 	/**
 	 * @var Tx_Extbase_Persistence_BackendInterface
@@ -205,6 +205,15 @@ class Tx_Extbase_Persistence_Manager implements Tx_Extbase_Persistence_ManagerIn
 			$this->session->unregisterReconstitutedObject($removedObject);
 		}
 	}
-
 }
+
+/**
+ * @deprecated since Extbase 6.0, will be removed in Extbase 7.0
+ */
+class Tx_Extbase_Persistence_Manager extends Tx_Extbase_Persistence_Old_Manager {
+	
+	public function __construct() {
+		t3lib_div::logDeprecatedFunction();
+		return parent::construct();
+	}
 ?>
